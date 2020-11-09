@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <script src=
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.3.2/highlight.min.js"
+    integrity=
+    "sha512-8DnqlIcZT5O7kn55WxWs0PnFyhwCqVEnsDpyHqcadSNtP0eqae406JmIoo2cXT5A42jnlcCw013sdkmK3mEJcQ=="
+    crossorigin="anonymous"></script>
+    <script src=
+    "https://cdnjs.cloudflare.com/ajax/libs/showdown/1.9.1/showdown.min.js"
+    integrity=
+    "sha512-L03kznCrNOfVxOUovR6ESfCz9Gfny7gihUX/huVbQB9zjODtYpxaVtIaAkpetoiyV2eqWbvxMH9fiSv5enX7bw=="
+    crossorigin="anonymous"></script>
+    <link rel="stylesheet" href=
+    "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.3.2/styles/default.min.css">
+    <title></title>
+</head>
+<body>
+    <script>
+     var converter = new showdown.Converter();
+
+     function renderMarkedString(marked_string) {
+         let markdown;
+         if (typeof s == "object")
+             markdown = `\`\`\`${marked_string["language"]}\n${marked_string["value"]}\n\`\`\``;
+         else
+             markdown = marked_string;
+
+         return new converter.makeHtml(markdown);
+     }
+
+     function escapeHTML(s) {
+         let helper = document.createElement("div")
+         helper.appendChild(document.createTextNode(s))
+
+         return helper.innerHTML
+     }
+
+     function renderMarkupContent(markup) {
+         let kind = markup["kind"];
+         let text = markup["value"];
+
+         if (kind == "plaintext")
+             return escapeHTML(text);
+         else if (kind == "markdown")
+             return new converter.makeHtml(text);
+
+         throw `renderMarkupContent: unknown kind: ${kind}`;
+     }
+
+     function renderHoverDoc(hover_doc) {
+         // MarkedString
+         if (typeof hover_doc == "string" || !("kind" in hover_doc))
+             return renderMarkedString(hover_doc);
+         // [MarkedString]
+         else if (Array.isArray(hover_doc))
+             hover_doc.map(renderMarkupContent).join("");
+         // MarkupContent
+         else
+             return renderMarkupContent(hover_doc);
+     }
+
+     function setHover(hover_doc) {
+         let rendered;
+         try {
+             rendered = renderHoverDoc(hover_doc);
+         }
+         catch (err) {
+             return err;
+         }
+         document.getElementById("lsp-hover-content").innerHTML = rendered;
+         // For some reason, this has to be done manually (tested on Firefox).
+         // HighlightJS' built-in functions don't work.
+         document.querySelectorAll("pre code").forEach(hljs.highlightBlock);
+         return true; // report sucess to Emacs
+     }
+    </script>
+    <div id="lsp-hover-content" style="font-size: 40px"></div>
+</body>
+</html>

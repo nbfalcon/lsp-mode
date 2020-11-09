@@ -4537,9 +4537,43 @@ If INCLUDE-DECLARATION is non-nil, request the server to include declarations."
                          :mode 'tick
                          :cancel-token :highlights))))
 
+(defvar-local lsp--hover-xwidget nil
+  "The webkit xwidget of the current hover buffer.")
+
+(define-derived-mode lsp-xwidget-hover-mode xwidget-webkit-mode
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (insert " ")
+    (setq lsp--hover-xwidget (xwidget-insert 1 'webkit (buffer-name)
+                                             (window-pixel-width)
+                                             (window-pixel-height)))
+    (put-text-property (point) (1+ (point))
+                       'display (list 'xwidget :xwidget lsp--hover-xwidget)))
+  (-doto lsp--hover-xwidget
+    (xwidget-put 'callback #'xwidget-webkit-callback)
+    (xwidget-webkit-goto-uri
+     (concat "file://" "/home/nikita/Projects/emacs-package-contrib/lsp-mode/"
+             "rsc/lsp-render-doc.html"))
+    (xwidget-webkit-execute-script (format "document.title = %s[0]"
+                                           (lsp--json-serialize
+                                            (vector (buffer-name)))))))
+
+(defun lsp-xwidget-hover (hover-content)
+  "Display HOVER-CONTENT in a webkit-xwidget.
+Render it in the current buffer."
+  (unless (derived-mode-p 'lsp-xwidget-hover-mode)
+    (lsp-xwidget-hover-mode))
+  (xwidget-webkit-execute-script
+   lsp--hover-xwidget
+   (format "setHover(%s[0])"
+           ;; minified JSON is JavaScript
+           (lsp--json-serialize (vector hover-content)))
+   (lambda (result)
+     (unless (eq result t)
+       (lsp--error "XWidget hover failed: %s" result)))))
+
 (defun lsp-describe-thing-at-point ()
-  "Display the type signature and documentation of the thing at
-point."
+  "Display hover information for the thing at point."
   (interactive)
   (let ((contents (-some->> (lsp--text-document-position-params)
                     (lsp--make-request "textDocument/hover")
@@ -4549,7 +4583,9 @@ point."
         (let ((lsp-help-buf-name "*lsp-help*"))
           (with-current-buffer (get-buffer-create lsp-help-buf-name)
             (with-help-window lsp-help-buf-name
-              (insert (string-trim-right (lsp--render-on-hover-content contents t))))))
+              (lsp-xwidget-hover contents)
+              ;; (insert (string-trim-right (lsp--render-on-hover-content contents t)))
+              )))
       (lsp--info "No content at point."))))
 
 (defun lsp--point-in-bounds-p (bounds)
