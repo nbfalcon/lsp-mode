@@ -37,8 +37,8 @@
 RANGES shall be a list of lsp-`&Range's. They can be acquired
 from various lsp protocol requests, e.g.
 `textDocument/documentHighlight', ...."
-  (require 'iedit)
   (unless (seq-empty-p ranges)
+    (require 'iedit)
     (mapc (-lambda ((&RangeToPoint :start :end))
             (push (iedit-make-occurrence-overlay start end)
                   iedit-occurrences-overlays))
