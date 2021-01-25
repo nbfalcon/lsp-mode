@@ -36,7 +36,14 @@
 (defvar iedit-occurrences-overlays)
 (defvar iedit-occurrence-keymap)
 (defvar iedit-mode-occurrence-keymap)
+(defvar iedit-occurrence-overlay-name)
 (defvar evil-multiedit--dont-recall)
+
+(defun lsp-iedit--at-point (&optional pos)
+  "Return the string of an `iedit' overlay at POS or nil."
+  (when-let ((ov (--first (overlay-get it iedit-occurrence-overlay-name)
+                          (overlays-at (or pos (point))))))
+    (buffer-substring (overlay-start ov) (overlay-end ov))))
 
 (defun lsp-iedit--on-ranges (ranges)
   "Start an `iedit' operation using RANGES.
@@ -62,7 +69,8 @@ from various lsp protocol requests, e.g.
     (add-hook 'iedit-aborting-hook 'iedit-done nil t)
     (message "%d occurrences of \"%s\""
              (seq-length ranges)
-             (lsp--range-text (lsp-seq-first ranges)))))
+             (or (lsp-iedit--at-point)
+                 (lsp--range-text (lsp-seq-first ranges))))))
 
 ;;;###autoload
 (defun lsp-iedit-highlights ()
