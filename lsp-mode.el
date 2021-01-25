@@ -4668,6 +4668,17 @@ If INCLUDE-DECLARATION is non-nil, request the server to include declarations."
                          :mode 'tick
                          :cancel-token :highlights))))
 
+(defcustom lsp-describe-thing-at-point-setup-hook '(turn-on-visual-line-mode)
+  "Hook to configure the `lsp-describe-thing-at-point' buffer.
+This hook is run in the context of the already filled help
+buffer.
+
+Note that the functions herein may be called more than once on
+the same buffer, so `turn-on-*' functions need to be used instead
+of minor-modes."
+  :group 'lsp-mode
+  :type 'hook)
+
 (defun lsp-describe-thing-at-point ()
   "Display the type signature and documentation of the thing at
 point."
@@ -4680,7 +4691,8 @@ point."
         (let ((lsp-help-buf-name "*lsp-help*"))
           (with-current-buffer (get-buffer-create lsp-help-buf-name)
             (with-help-window lsp-help-buf-name
-              (insert (string-trim-right (lsp--render-on-hover-content contents t))))))
+              (insert (string-trim-right (lsp--render-on-hover-content contents t)))
+              (run-hooks 'lsp-describe-thing-at-point-setup-hook))))
       (lsp--info "No content at point."))))
 
 (defun lsp--point-in-bounds-p (bounds)
