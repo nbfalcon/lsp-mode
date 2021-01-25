@@ -11,3 +11,5 @@ semantic matches in parallel:
   If an `iedit` session is already active, `lsp-iedit-highlights` will simply
   add the document highlights to it, without restarting it. This way, another
   group of symbol highlights can be added to the current `iedit` session.
+- `lsp-mc-highlights`: like the above, but for `multiple-cursors`, similar to
+  `js2r-rename-var`.

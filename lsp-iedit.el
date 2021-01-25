@@ -30,6 +30,8 @@
 (declare-function iedit-lib-start "iedit-lib" (mode-exit-func))
 (declare-function iedit-done "iedit" ())
 (declare-function evil-multiedit-state "evil-multiedit" ())
+(declare-function mc/create-fake-cursor-at-point "multiple-cursors-core" (&optional id))
+(declare-function mc/maybe-multiple-cursors-mode "multiple-cursors-core" ())
 
 (defvar iedit-mode)
 (defvar iedit-auto-buffering)
@@ -72,6 +74,26 @@ from various lsp protocol requests, e.g.
              (or (lsp-iedit--at-point)
                  (lsp--range-text (lsp-seq-first ranges))))))
 
+(defun lsp-mc--on-ranges (ranges)
+  (require 'multiple-cursors-core)
+  (let* ((primary (lsp--find-range-containing ranges))
+         (offs (if primary (- (point) (lsp--range-start-point primary)) 0)))
+    (save-excursion
+      (mapc (-lambda ((range &as &RangeToPoint :start :end))
+              (unless (eq range primary)
+                (let ((actual-start (+ start offs)))
+                  (goto-char (if (> actual-start end) end actual-start)))
+                (set-mark end)
+                (mc/create-fake-cursor-at-point)))
+            ranges))
+    (and primary (push-mark (lsp--range-end-point primary))))
+  (mc/maybe-multiple-cursors-mode))
+
+(defun lsp-iedit--get-highlight-ranges ()
+  "Acquire documentHighlight ranges synchronously."
+  (->> (lsp-request "textDocument/documentHighlight" (lsp--text-document-position-params))
+       (mapcar #'lsp:document-highlight-range)))
+
 ;;;###autoload
 (defun lsp-iedit-highlights ()
   "Start an `iedit' operation on the documentHighlights at point.
@@ -80,9 +102,14 @@ language server doesn't support renaming.
 
 See also `lsp-enable-symbol-highlighting'."
   (interactive)
-  (let ((highlights (lsp-request "textDocument/documentHighlight"
-                                 (lsp--text-document-position-params))))
-    (lsp-iedit--on-ranges (mapcar #'lsp:document-highlight-range highlights))))
+  (lsp-iedit--on-ranges (lsp-iedit--get-highlight-ranges)))
+
+;;;###autoload
+(defun lsp-mc-highlights ()
+  "`multiple-cursors' for the documentHighlights at `point'.
+See also `lsp-iedit-highlights'."
+  (interactive)
+  (lsp-mc--on-ranges (lsp-iedit--get-highlight-ranges)))
 
 ;;;###autoload
 (defun lsp-evil-multiedit-highlights ()

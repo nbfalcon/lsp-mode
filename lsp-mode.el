@@ -1519,6 +1519,25 @@ etc."
 (lsp-defun lsp--range-text ((&RangeToPoint :start :end))
   (buffer-substring start end))
 
+(lsp-defun lsp--range-contains? (pos (&RangeToPoint :start :end))
+  "Check if a range contains POS."
+  (and (<= pos end) (>= pos start)))
+
+(defun lsp--find-range-containing (ranges &optional pos)
+  "Return the first RANGE in RANGES containing POS.
+POS defaults to `point' if nil or unspecified."
+  (seq-find (-partial #'lsp--range-contains? (or pos (point))) ranges))
+
+(lsp-defun lsp--range-start-point ((&RangeToPoint :start))
+  "Return the `point' of the given range's beginning.
+See also: `lsp--range-end-point'."
+  start)
+
+(lsp-defun lsp--range-end-point ((&RangeToPoint :end))
+  "Return the `point' of the given range's end.
+See also: `lsp--range-start-point'."
+  end)
+
 (lsp-defun lsp--find-wrapping-range ((&SelectionRange :parent? :range (&RangeToPoint :start :end)))
   (cond
    ((and
