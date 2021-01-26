@@ -4672,7 +4672,15 @@ If INCLUDE-DECLARATION is non-nil, request the server to include declarations."
   most recently requested highlights.")
 
 (defun lsp--document-highlight ()
-  (let ((curr-sym-bounds (bounds-of-thing-at-point 'symbol)))
+  (let* ((curr-sym-bounds (bounds-of-thing-at-point 'symbol))
+         ;; `bounds-of-thing-at-point' returns an END one too far, i.e. DEFUN|()
+         ;; is still in bounds, even though the visible cursor is past the end.
+         ;; Since `ccls' yields different highlights for DE|FUN() and DEFUN|(),
+         ;; this needs to be handled explicitly.
+         (curr-sym-bounds (and curr-sym-bounds
+                               (< (point) (cdr curr-sym-bounds))
+                               (>= (point) (car curr-sym-bounds))
+                               curr-sym-bounds)))
     (unless (or (looking-at "[[:space:]\n]")
                 (not lsp-enable-symbol-highlighting)
                 (and lsp--have-document-highlights
