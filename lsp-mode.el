@@ -2977,8 +2977,9 @@ If NO-WAIT is non-nil send the request as notification."
                                :mode 'detached
                                :cancel-token :sync-request)
             (while (not (or resp-error resp-result))
-              (accept-process-output nil 0.001)
-              (when (< expected-time (time-to-seconds (current-time)))
+              (accept-process-output nil (- expected-time send-time))
+              (setq send-time (time-to-seconds (current-time)))
+              (when (< expected-time send-time)
                 (error "Timeout while waiting for response. Method: %s." method)))
             (setq done? t)
             (cond
@@ -3003,7 +3004,7 @@ Return same value as `lsp--while-no-input' and respecting `non-essential'."
                              :cancel-token :sync-request)
           (while (not (or resp-error resp-result
                           (and non-essential (input-pending-p))))
-            (accept-process-output nil 0.001))
+            (accept-process-output nil))
           (setq done? t)
           (cond
            ((eq resp-result :finished) nil)
