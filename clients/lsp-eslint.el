@@ -335,19 +335,14 @@ to allow or deny it.")
                                                 :glob-pattern "**/.eslintignore")
                                               ,(lsp-make-file-system-watcher
                                                 :glob-pattern "**/package.json")])))))
-  :download-server-fn (lambda (_client callback error-callback _update?)
-                        (let ((tmp-zip (make-temp-file "ext" nil ".zip")))
-                          (delete-file tmp-zip)
+  :download-server-fn (lambda (_client cb error-cb update?)
+                        (if (and (not update?) (f-exists? lsp-eslint-unzipped-path))
+                            (user-error "eslint is already installed")
                           (lsp-download-install
-                           (lambda (&rest _)
-                             (condition-case err
-                                 (progn
-                                   (lsp-unzip tmp-zip lsp-eslint-unzipped-path)
-                                   (funcall callback))
-                               (error (funcall error-callback err))))
-                           error-callback
+                           cb error-cb
                            :url (lsp-vscode-extension-url "dbaeumer" "vscode-eslint" "2.1.14")
-                           :store-path tmp-zip)))))
+                           :store-path lsp-eslint-unzipped-path
+                           :decompress :zip)))))
 
 (provide 'lsp-eslint)
 ;;; lsp-eslint.el ends here
