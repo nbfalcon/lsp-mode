@@ -7198,26 +7198,43 @@ Check `*lsp-install*' and `*lsp-log*' buffer."
             lsp-client-packages)
     (setq lsp--client-packages-required t)))
 
+(defun lsp--read-server (prompt servers)
+  "Prompt the user for a server using PROMPT.
+SERVERS shall be a pre-filtered list of `lsp--client's."
+  (lsp--completing-read prompt servers
+                        (-compose #'symbol-name #'lsp--client-server-id)
+                        nil t))
+
+(defun lsp--install-server-1 (prompt &optional update? predicate)
+  "Ask the user to select a server matching PREDICATE.
+PROMPT is the string to prompt with, and PREDICATE a function of
+one argument that is called for each `lsp-clients' client and
+shall return non-nil if it is applicable. UPDATE?, if set, allows
+the user to install (update) already installed servers."
+  (lsp--require-packages)
+  (if-let ((matching-clients
+            (lsp--filter-clients (-andfn #'lsp--client-download-server-fn
+                                         (-not #'lsp--client-download-in-progress?)
+                                         (or predicate (-const t))
+                                         (-orfn (-const update?)
+                                                (-not #'lsp--server-binary-present?))))))
+      (lsp--install-server-internal
+       (lsp--read-server prompt matching-clients) t)
+    (user-error "No applicable clients")))
+
 (defun lsp-install-server (update?)
   "Interactively install server.
 When prefix UPDATE? is t force installation even if the server is present."
   (interactive "P")
-  (lsp--require-packages)
-  (lsp--install-server-internal
-   (lsp--completing-read
-    "Select server to install: "
-    (or (->> lsp-clients
-             (ht-values)
-             (-filter (-andfn
-                       (-orfn (-not #'lsp--server-binary-present?)
-                              (-const update?))
-                       (-not #'lsp--client-download-in-progress?)
-                       #'lsp--client-download-server-fn)))
-        (user-error "There are no servers with automatic installation"))
-    (-compose #'symbol-name #'lsp--client-server-id)
-    nil
-    t)
-   update?))
+  (lsp--install-server-1
+   "Select server to install: " update?))
+
+(defun lsp-install-server-for-buffer (update?)
+  "Interactively install a server for the current buffer.
+UPDATE? is like in `lsp-install-server'."
+  (interactive "P")
+  (lsp--install-server-1
+   "Install server for this buffer: " update? #'lsp--matching-clients?))
 
 (defun lsp-async-start-process (callback error-callback &rest command)
   "Start async process COMMAND with CALLBACK and ERROR-CALLBACK."
@@ -7963,9 +7980,7 @@ will be opened in multi folder language server if there is
 such."
   (-let ((session (lsp-session)))
     (-if-let (clients (if ask-for-client
-                          (list (lsp--completing-read "Select server to start: "
-                                                      (ht-values lsp-clients)
-                                                      (-compose 'symbol-name 'lsp--client-server-id) nil t))
+                          (list (lsp--read-server "Select server to start: " (ht-values lsp-clients)))
                         (lsp--find-clients)))
         (-if-let (project-root (-some-> session
                                  (lsp--calculate-root (buffer-file-name))
@@ -8091,13 +8106,10 @@ The server(s) will be started in the buffer when it has finished."
        ((setq clients (lsp--filter-clients (-andfn #'lsp--matching-clients?
                                                    #'lsp--client-download-server-fn
                                                    (-not #'lsp--client-download-in-progress?))))
-        (let ((client (lsp--completing-read
+        (let ((client (lsp--read-server
                        (concat "Unable to find installed server supporting this file. "
                                "The following servers could be installed automatically: ")
-                       clients
-                       (-compose #'symbol-name #'lsp--client-server-id)
-                       nil
-                       t)))
+                       clients)))
           (cl-pushnew (current-buffer) (lsp--client-buffers client))
           (lsp--install-server-internal client)))
        ;; no clients present
