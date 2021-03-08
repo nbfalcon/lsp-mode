@@ -6780,18 +6780,18 @@ returns the command to execute."
                    (let* ((final-command (lsp-resolve-final-function local-command))
                           ;; wrap with stty to disable converting \r to \n
                           (process-name (generate-new-buffer-name name))
-                          (wrapped-command (append '("stty" "raw" ";")
-                                                   final-command
-                                                   (list
-                                                    (concat "2>"
-                                                            (or (when generate-error-file-fn
-                                                                  (funcall generate-error-file-fn name))
-                                                                (format "/tmp/%s-%s-stderr" name
-                                                                        (cl-incf lsp--stderr-index)))))))
+                          (wrapped-command
+                           (format "stty raw ; %s 2>%s"
+                                   (mapconcat #'shell-quote-argument final-command " ")
+                                   (shell-quote-argument
+                                    (or (when generate-error-file-fn
+                                          (funcall generate-error-file-fn name))
+                                        (format "/tmp/%s-%s-stderr" name
+                                                (cl-incf lsp--stderr-index))))))
                           (process-environment
                            (lsp--compute-process-environment environment-fn)))
-                     (let ((proc (apply 'start-file-process-shell-command process-name
-                                        (format "*%s*" process-name) wrapped-command)))
+                     (let ((proc (start-file-process-shell-command
+                                  process-name (format "*%s*" process-name) wrapped-command)))
                        (set-process-sentinel proc sentinel)
                        (set-process-filter proc filter)
                        (set-process-query-on-exit-flag proc nil)
